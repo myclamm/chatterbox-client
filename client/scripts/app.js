@@ -1,20 +1,23 @@
 // YOUR CODE HERE:
-var username = prompt('Please choose a username');
-var room = 'lobby'
 var app = {
+  username : document.URL.split('=')[1],
+  room : 'lobby',
+  totalMsgs: 0,
+  lastMsg: null,
   init: function(){
-    $.ajax({
-      url: this.server,
-      contentType: 'application/json',
-      type: 'GET',
-      success: function(data){
-        app.clearMessages();
-        _.each(data.results,function(message){
-          app.addMessage(message);
-        }) ;
-      },
-      error: function(){console.log('Failed to receive message')}
+    app.fetch();
+    $('.submit').on('click',function(event){
+      event.preventDefault();
+      var $message = $('#message');
+      app.handleSubmit($($message).val());
+      $($message).val('');
     });
+
+    $('div').on('click','.username', function(){
+      app.addFriend($(this).text());
+    });
+
+    setInterval(app.fetch.bind(app),1000);
   },
   send: function(message){
     $.ajax({
@@ -30,10 +33,23 @@ var app = {
     var result;
     $.ajax({
       url: this.server,
+      data:'order=-createdAt',
       contentType: 'application/json',
       type: 'GET',
       success: function(data){
-        console.log(data.results);
+        if(app.lastMsg === null){
+          _.each(data.results,function(message){
+            app.addMessage(message);
+          }) ;
+        } else {
+          for(var k = 0; k < data.results.length; k++){
+            if(app.lastMsg === data.results[k].objectId){
+              for(var i = k-1; i >= 0;i--){
+                app.addMessage(data.results[i]);
+              }
+            }
+          }
+        }
       },
       error: function(){console.log('Failed to receive message')}
     });
@@ -44,15 +60,21 @@ var app = {
     $('#chats').empty();
   },
   addMessage: function(message){
+    app.lastMsg = message.objectId;
     // create li element
     var $newItem = $("<li></li>");
     // get data from message
     // put data inside li
     $($newItem).append('<div class="username">'+message.username+'</div');
     $($newItem).append('<div class="msg">'+message.text+'</div');
-    $($newItem).append('<div class="room">'+message.roomname+'</div');
     // append li to list
-    $('#chats').append($newItem);
+    if(app.totalMsgs < 100){
+      $('#chats').append($newItem);
+      app.totalMsgs++;
+    } else {
+      $('#chats').prepend($newItem);
+      $('li:last-child').remove();
+    }
   },
   addRoom: function(roomName){
     //create an html object
@@ -67,24 +89,15 @@ var app = {
   },
   handleSubmit: function(input){
     var myMessage = {
-      username: username,
-      room: room,
+      username: this.username,
+      room: this.room,
       text: input
     };
     app.send(myMessage);
   }
 };
 $(document).ready(function(){
-  $('.submit').on('submit',function(e){
-    e.preventDefault();
-    var $message = $('#message');
-    app.handleSubmit($($message).val());
-    $($message).val('');
-  });
-
-  $('div').on('click','.username', function(){
-    app.addFriend($(this).text());
-  });
-  //setInterval(app.init.bind(app),5000);
+  app.init();
 });
+
 
