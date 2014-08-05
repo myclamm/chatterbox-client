@@ -87,3 +87,6 @@ li div{
     display: inline;
 }
 
+.inactive {
+    display: none;
+}

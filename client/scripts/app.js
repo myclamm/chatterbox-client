@@ -4,22 +4,28 @@ var app = {
   username : document.URL.split('=')[1],
   //default room is lobby
   room : 'lobby',
-  //if totalMsgs is >100, app.addMessage switches from append to prepend
-  totalMsgs: 0,
   //if lastMsg is null, app.addMessage appends the newest 100 tweets, after that,
   //it will prepend all tweets, and iterate over the server's data array backwards starting from lastMsg-1
   lastMsg: null,
+  //stores roomNames
+  rooms:{},
 
   //initializes page with 100 tweets, sets click handler on submit button,
   //sets addFriend functionality, and calls fetch every 1 second
   init: function(){
     app.fetch();
-    $('.submit').on('click',function(event){
+    $('.submit').on('click',function(){
       event.preventDefault();
       var $message = $('#message');
       app.handleSubmit($($message).val());
       $($message).val('');
     });
+    //applies changeRoom() to any room selected in dropdown menu
+    $('select').on('change',function(){
+      var temp = $(this).find(":selected").val();
+      app.room = temp
+      app.changeRoom(temp);
+    })
 
     $('div').on('click','.username', function(){
       app.addFriend($(this).text());
@@ -50,22 +56,20 @@ var app = {
       contentType: 'application/json',
       type: 'GET',
       success: function(data){
-        //for the first 100 tweets it iterates in order and calls addMessage to append them to the chatbox
-        //so that the newest tweets are at the top (the array is in order from newest to oldest)
+        //the first time fetch gets called, set app.lastMsg to be the last message
+        //in the data array
         if(app.lastMsg === null){
-          _.each(data.results,function(message){
-            app.addMessage(message);
-          }) ;
+          app.addMessage(data.results[data.results.length-1]);
         } else {
-          //if 100 tweets have been posted (i.e. we've called init already), all subsequent
-          //setInterval calls of fetch will iterate through the server data backwards, starting from
-          //the last message that was posted, and working to index 0. app.addMessage will automatically
-          //remove old posts as it prepends new ones.
+          //iterates over the data until it finds the last message
+          //at which point it iterates backwards from there and
+          //calls addMessage for each message
           for(var k = 0; k < data.results.length; k++){
             if(app.lastMsg === data.results[k].objectId){
               for(var i = k-1; i >= 0;i--){
                 app.addMessage(data.results[i]);
               }
+              break;
             }
           }
         }
@@ -76,7 +80,7 @@ var app = {
   },
 
   //defines the server URL
-  server:'https://api.parse.com/1/classes/chatterbox',
+  server:'https://api.parse.com/1/classes/chatterbox?',
 
   //clears the chat box
   clearMessages: function(){
@@ -87,25 +91,30 @@ var app = {
   //otherwise it prepends it to #chats and removes an old message from the bottom
   addMessage: function(message){
     app.lastMsg = message.objectId;
+    //create element to be inserted
     var $newItem = $("<li></li>");
-    $($newItem).append('<div class="username">'+message.username+":"+'</div');
-    $($newItem).append('<div class="msg">'+" "+message.text+'</div');
-    if(app.totalMsgs < 100){
-      $('#chats').append($newItem);
-      app.totalMsgs++;
-    } else {
-      $('#chats').prepend($newItem);
-      $('li:last-child').remove();
+    $($newItem).append('<div class="username">'+_.escape(message.username)+':</div');
+    $($newItem).append('<div class="msg"> '+_.escape(message.text)+'</div');
+    //refactor function and add else statement
+    if(!app.rooms[message.roomname]){
+      app.addRoom(message.roomname);
     }
+    app.rooms[message.roomname].prepend($newItem);
   },
 
-  //Currently, this just adds roomNames to the #roomSelect dropdown menu
+  //Adds rooms to the dropdown menu and appends rooms to DOM,
   addRoom: function(roomName){
     var $newRoom = $('<option></option>');
-    $($newRoom).text(roomName);
+    $($newRoom).text(_.escape(roomName));
     $('#roomSelect').append($newRoom);
+    app.rooms[roomName] = $('<ul class="inactive '+roomName+' "></ul>');
+    $('#chats').append(app.rooms[roomName]);
   },
-
+  changeRoom: function(roomName){
+    console.log('hi')
+    $('ul').addClass('inactive');
+    app.rooms[roomName].removeClass('inactive');
+  },
   //We have yet to implement this function
   addFriend: function(userName){
     //add a class of friend to every username
@@ -121,7 +130,8 @@ var app = {
       text: input
     };
     app.send(myMessage);
-  }
+  },
+
 };
 
 //When document loads, call app.init()
