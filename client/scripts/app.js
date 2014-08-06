@@ -6,12 +6,12 @@ $(document).ready(function(){
 	app.username = window.location.href.split("=")[1];
 	app.room = "lobby";
 	app.friends = {};
-	app.rooms = {};
+	app.rooms = {chats:true};
 
 	//invokes app.fetch and passes callback that appends all messages to the dom
 	app.init = function(){
 		setInterval(function(){app.fetch.call(null,app.appendAllToDom)},500);
-		setInterval(function(){app.fetch.call(null,app.updateRooms)},500);
+		setInterval(function(){app.fetch.call(null,app.updateRooms)},30);
 	};
 
 	//takes data from server, adds new rooms to app.rooms and dropdown menu
@@ -22,11 +22,9 @@ $(document).ready(function(){
 				app.rooms[_.escape(message.roomname)]=true;
 				//adds to dropdown menu
 				app.addRoom(message.roomname);
-				//creates a new div
 			}
 		});
 	};
-
 	app.send = function(message){
 		$.ajax({
 			url: app.server,
@@ -42,8 +40,11 @@ $(document).ready(function(){
 	app.appendAllToDom = function(messages){
 		$('#chats').empty();
 		var data = messages.results;
-		for(var i=0;i<15;i++){
-			app.appendMessageToDom(data[i]);
+		for(var i=0;i<100;i++){
+			//only show messages that are in the same room as app.room
+			if(data[i].roomname===app.room){
+				app.appendMessageToDom(data[i]);
+			}
 		}
 	};
 
@@ -51,15 +52,15 @@ $(document).ready(function(){
 	app.appendMessageToDom = function(message){
 		var user = $("<span id='user'></span>").text(_.escape(message.username));
 		var text = _.escape(message.text);
-		var newMessage = $('<div></div>').append(user).append(": "+text);
-		
+		var newMessage = $('<div></div>').append(user).append(": "+text).append("--"+message.roomname);
+		var roomname = "#"+message.roomname
+		newMessage.attr("id",message.username);
+		newMessage.attr("class","message");
 		//makes messages bold if message is from friend
 		if(message.username in app.friends){
 			newMessage.attr('id','friend')
 			newMessage.css("font-weight","bold")
 		}
-
-		
 		$("#chats").append(newMessage);
 	};
 
@@ -76,6 +77,7 @@ $(document).ready(function(){
 		});
 	};
 
+	//useless method only made to pass specs
 	app.clearMessages = function(){
 		$("#chats").html('')
 	};
@@ -85,7 +87,7 @@ $(document).ready(function(){
 		var newDiv = $('<div></div>').text(text); 
 		$("#chats").append(newDiv);
 	};
-	//look into this
+	
 	app.addRoom = function(roomName){
 		var newRoom = $('<option></option>').text(roomName);
 		$("#roomSelect").append(newRoom);
