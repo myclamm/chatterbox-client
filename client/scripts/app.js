@@ -25,6 +25,7 @@ $(document).ready(function(){
 			}
 		});
 	};
+	
 	app.send = function(message){
 		$.ajax({
 			url: app.server,
